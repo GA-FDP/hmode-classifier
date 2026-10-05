@@ -3236,7 +3236,7 @@ packages:
 - pypi: ./
   name: hmode-classifier
   version: 0.1.0
-  sha256: bfd631c95bf004c32f9dd253ae1661a7fda185101e473bd081193b74c95ace9c
+  sha256: 59d9904023d8abc16aaa660b9128b4a44d1ee2fc6eb1a5c71ce3f1909bea9abc
   requires_dist:
   - numpy>=1.26
   - scikit-learn>=1.9

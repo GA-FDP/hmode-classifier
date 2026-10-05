@@ -28,5 +28,6 @@ hmode_classifier = ["Models/*.onnx", "Models/*.npy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 markers = ["live: needs the FDP origin and a bearer token"]
 addopts = "-m 'not live'"
