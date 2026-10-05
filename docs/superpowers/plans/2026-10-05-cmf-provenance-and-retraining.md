@@ -8,6 +8,8 @@
 
 **Tech Stack:** Python 3.11, pixi, fdp-core-latest >= 1.24.0 (toksearch 2.17.1, toksearch_d3d 0.14.1, toksearch_cmf 0.2.1, cmflib, dvc), onnxruntime, scikit-learn, skl2onnx, pyarrow, pytest.
 
+**Execution notes (2026-10-05):** all tasks done. Deviations from the plan as written: toksearch_cmf 0.2.1 has no `properties=` on CmfRun (main does, unreleased), so the time grid is recorded as metrics; DVC refuses git-tracked files, so the label sheet and the v1 weights are mirrored under `data/` for hashing (`cmf.dvc_mirror`) and the label stage declares the weights *directory*, which for v2 is the very artifact the train stage produced; `.gitignore` must not hide `data/` or `cmf_runs/`; `stages/` needed `pythonpath = ["."]` for pytest; the weights path must be a `Path`. The 301-shot ECE feature run took 33 min at 16 workers.
+
 **Repository state at start:** `repos/hmode-classifier` is a clone of `RClarkPhysics/Hmode-Classifier-For-FDP` at `30e28f0`. Remote `upstream` is GitHub with pushes disabled; remote `origin` is a local bare repo at `/fusion/projects/dt/sammuli/fdp_dev/scratch/hmode-classifier/origin.git`. cmflib runs `git checkout -B mlmd` on every `Cmf` init, so **commit on `mlmd` once stages start running and fast-forward `main` afterwards**; before that, work on `main`.
 
 **Conventions:**
@@ -48,14 +50,14 @@
 - Modify: `hmode_classifier/Hmode_ML_Classifier.py` (MODEL_DIR resolution), the first cell of the four notebooks (import path)
 - Test: `tests/test_package.py`
 
-- [ ] **Step 1: Move the modules into the package**
+- [x] **Step 1: Move the modules into the package**
 
 ```bash
 mkdir -p hmode_classifier tests
 git mv Hmode_ML_Classifier.py ECE_Classifier.py PR_Classifier.py Ensemble_Classifier.py Models hmode_classifier/
 ```
 
-- [ ] **Step 2: Write `hmode_classifier/__init__.py`**
+- [x] **Step 2: Write `hmode_classifier/__init__.py`**
 
 ```python
 """H-mode classifier for DIII-D over the Fusion Data Platform.
@@ -73,7 +75,7 @@ MODEL_DIR = Path(__file__).resolve().parent / "Models"
 __all__ = ["Hmode_Ml_Predictions", "MODEL_DIR"]
 ```
 
-- [ ] **Step 3: Make `Hmode_ML_Classifier` accept a weights directory**
+- [x] **Step 3: Make `Hmode_ML_Classifier` accept a weights directory**
 
 In `hmode_classifier/Hmode_ML_Classifier.py`, change the constructor signature and the `MODEL_DIR` block:
 
@@ -106,7 +108,7 @@ Add to the docstring, after `Exclude_Non_Plasma`:
             Directory holding the ONNX models and .npy statistics. Defaults to the v1 weights shipped in the package.
 ```
 
-- [ ] **Step 4: Write `pyproject.toml`**
+- [x] **Step 4: Write `pyproject.toml`**
 
 ```toml
 [build-system]
@@ -144,7 +146,7 @@ markers = ["live: needs the FDP origin and a bearer token"]
 addopts = "-m 'not live'"
 ```
 
-- [ ] **Step 5: Write `pixi.toml`**
+- [x] **Step 5: Write `pixi.toml`**
 
 ```toml
 [workspace]
@@ -177,7 +179,7 @@ train = "python stages/train.py"
 label = "python -m fdp run python stages/label.py"
 ```
 
-- [ ] **Step 6: Write `.gitignore`**
+- [x] **Step 6: Write `.gitignore`**
 
 ```
 .pixi/
@@ -191,7 +193,7 @@ __pycache__/
 
 Note: `mlmd` and `cmf_artifacts` are committed by cmflib itself on the `mlmd` branch; leave them out of `.gitignore`.
 
-- [ ] **Step 7: Update the notebooks' import**
+- [x] **Step 7: Update the notebooks' import**
 
 ```bash
 for nb in "Regression Tests.ipynb" "Testing Out ECE.ipynb" "Testing Out Ens.ipynb" "Testing Out PR.ipynb"; do
@@ -202,7 +204,7 @@ grep -c "from hmode_classifier import Hmode_ML_Classifier" "Regression Tests.ipy
 
 Expected: `2` (two import cells in that notebook), and `1` in each of the others.
 
-- [ ] **Step 8: Write the failing package test**
+- [x] **Step 8: Write the failing package test**
 
 `tests/test_package.py`:
 
@@ -235,7 +237,7 @@ def test_models_dir_override():
     assert str(hm.MODEL_DIR).endswith("v2")
 ```
 
-- [ ] **Step 9: Install the environment and run the test**
+- [x] **Step 9: Install the environment and run the test**
 
 ```bash
 export RATTLER_CACHE_DIR=/local-scratch/sammuli/rattler-cache PIXI_CACHE_DIR=/local-scratch/sammuli/pixi-cache
@@ -245,7 +247,7 @@ pixi run test
 
 Expected: `3 passed`.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add -A
@@ -260,7 +262,7 @@ git commit -m "Package the classifier as hmode_classifier with the v1 weights as
 - Modify: `hmode_classifier/ECE_Classifier.py`, `hmode_classifier/PR_Classifier.py`, `hmode_classifier/Ensemble_Classifier.py`
 - Test: `tests/test_hooks.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `tests/test_hooks.py`:
 
@@ -286,7 +288,7 @@ def test_ensemble_models_load_from_a_directory():
     assert models["cluster_pr"].shape == (200, 10)
 ```
 
-- [ ] **Step 2: Run it to see it fail**
+- [x] **Step 2: Run it to see it fail**
 
 ```bash
 pixi run test tests/test_hooks.py
@@ -294,7 +296,7 @@ pixi run test tests/test_hooks.py
 
 Expected: FAIL, `KeyError: 'provenance'` and `AttributeError: ... has no attribute 'load_models'`.
 
-- [ ] **Step 3: Edit `ECE_Classifier.Collect_Labels`**
+- [x] **Step 3: Edit `ECE_Classifier.Collect_Labels`**
 
 Signature:
 
@@ -328,7 +330,7 @@ Note `Label_Times` is now set in both branches so a feature-only run still repor
     records = pipeline.compute_multiprocessing(num_workers=num_workers, provenance=provenance)
 ```
 
-- [ ] **Step 4: Edit `PR_Classifier.Collect_Labels` the same way**
+- [x] **Step 4: Edit `PR_Classifier.Collect_Labels` the same way**
 
 Signature:
 
@@ -361,7 +363,7 @@ and the compute line with:
     records = pipeline.compute_multiprocessing(num_workers=num_workers, provenance=provenance)
 ```
 
-- [ ] **Step 5: Add `load_models` to `Ensemble_Classifier` and use it**
+- [x] **Step 5: Add `load_models` to `Ensemble_Classifier` and use it**
 
 After the `PR_CUTOFF = 2.5` line add:
 
@@ -393,7 +395,7 @@ and the `BuildEnsembleDictionary(DD,ONNX_Kmeans_ECE,...)` call with:
 
 The v2 weights in Task 5 keep the `_v1` file names so this loader works for both; the directory, not the file name, identifies the version.
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 ```bash
 pixi run test
@@ -401,7 +403,7 @@ pixi run test
 
 Expected: all pass (5 tests).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
@@ -416,7 +418,7 @@ git commit -m "Let callers pass a provenance object, a worker count and a featur
 - Create: `hmode_classifier/labels.py`, `hmode_classifier/features.py`
 - Test: `tests/test_labels.py`, `tests/test_features.py`
 
-- [ ] **Step 1: Write the failing label test**
+- [x] **Step 1: Write the failing label test**
 
 `tests/test_labels.py`:
 
@@ -451,7 +453,7 @@ def test_unknown_shot_is_unlabelled(tmp_path):
     assert modes_for(labels, 2, np.array([100])).tolist() == [-1]
 ```
 
-- [ ] **Step 2: Write `hmode_classifier/labels.py`**
+- [x] **Step 2: Write `hmode_classifier/labels.py`**
 
 ```python
 """Hand labels: L-mode (0), dither (1), H-mode (2) time windows per shot.
@@ -486,7 +488,7 @@ def modes_for(labels, shot, times):
     return modes
 ```
 
-- [ ] **Step 3: Run the label tests**
+- [x] **Step 3: Run the label tests**
 
 ```bash
 pixi run test tests/test_labels.py
@@ -494,7 +496,7 @@ pixi run test tests/test_labels.py
 
 Expected: `2 passed`.
 
-- [ ] **Step 4: Write the failing feature-table test**
+- [x] **Step 4: Write the failing feature-table test**
 
 `tests/test_features.py`:
 
@@ -532,7 +534,7 @@ def test_ensemble_rows_are_the_inner_join_on_shot_and_time():
     assert both[["shot", "time", "label", "e0", "p0"]].values.tolist() == [[1, 200, 1, 0.2, 9.0]]
 ```
 
-- [ ] **Step 5: Write `hmode_classifier/features.py`**
+- [x] **Step 5: Write `hmode_classifier/features.py`**
 
 ```python
 """Feature rows for training, from the same code that extracts them at inference."""
@@ -574,7 +576,7 @@ def ensemble_rows(ece, pr):
     return ece.merge(pr.drop(columns=["label"]), on=["shot", "time"], how="inner")
 ```
 
-- [ ] **Step 6: Run the feature tests**
+- [x] **Step 6: Run the feature tests**
 
 ```bash
 pixi run test tests/test_features.py
@@ -582,7 +584,7 @@ pixi run test tests/test_features.py
 
 Expected: `3 passed`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
@@ -598,7 +600,7 @@ git commit -m "Add label lookup and feature tables for training"
 - Modify: none
 - Test: `tests/test_cmf_stage.py`
 
-- [ ] **Step 1: Initialise DVC with a local remote**
+- [x] **Step 1: Initialise DVC with a local remote**
 
 ```bash
 mkdir -p /fusion/projects/dt/sammuli/fdp_dev/scratch/hmode-classifier/dvc-remote
@@ -608,7 +610,7 @@ git add .dvc .dvcignore
 git commit -m "Initialise DVC with a local remote"
 ```
 
-- [ ] **Step 2: Write `hmode_classifier/cmf.py`**
+- [x] **Step 2: Write `hmode_classifier/cmf.py`**
 
 ```python
 """CMF plumbing shared by the stages.
@@ -657,7 +659,7 @@ class CmfStage:
         self.cmf.finalize()
 ```
 
-- [ ] **Step 3: Write the stage-helper test**
+- [x] **Step 3: Write the stage-helper test**
 
 `tests/test_cmf_stage.py`:
 
@@ -677,7 +679,7 @@ def test_pipeline_name_is_stable():
 
 Run `pixi run test tests/test_cmf_stage.py`; expected `2 passed`.
 
-- [ ] **Step 4: Write `stages/features.py`**
+- [x] **Step 4: Write `stages/features.py`**
 
 ```python
 #!/usr/bin/env python
@@ -740,7 +742,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 5: Commit the stage, then run a trial on the `mlmd` branch**
+- [x] **Step 5: Commit the stage, then run a trial on the `mlmd` branch**
 
 cmflib checks out `mlmd` on its first run; commit first so the script's commit is recorded.
 
@@ -754,7 +756,7 @@ git branch --show-current
 
 Expected: two lines like `ece: 5 shots, 5 with features, N rows, ~40 s -> data/features/ece-trial5.parquet`, and the branch is now `mlmd`.
 
-- [ ] **Step 6: Check the trial table**
+- [x] **Step 6: Check the trial table**
 
 ```bash
 pixi run python -c "
@@ -765,7 +767,7 @@ for n in ('ece','pr'):
 
 Expected: ece has columns `shot, time, label, e0..e6` (7 features), pr has `p0..p9` (10 features), both labels present.
 
-- [ ] **Step 7: Run the full stage**
+- [x] **Step 7: Run the full stage**
 
 ```bash
 pixi run features 2>&1 | tail -3
@@ -773,7 +775,7 @@ pixi run features 2>&1 | tail -3
 
 Expected: about 300 shots each, roughly 5 minutes per pipeline, writing `data/features/ece.parquet` and `data/features/pr.parquet`. Check that `cmf_runs/` holds two new run directories and `data/features/ece.parquet.dvc` exists.
 
-- [ ] **Step 8: Commit on `mlmd` and fast-forward `main`**
+- [x] **Step 8: Commit on `mlmd` and fast-forward `main`**
 
 ```bash
 git add -A
@@ -790,7 +792,7 @@ git log --oneline -3
 - Create: `hmode_classifier/train.py`, `stages/train.py`
 - Test: `tests/test_train.py`
 
-- [ ] **Step 1: Write the failing training test**
+- [x] **Step 1: Write the failing training test**
 
 `tests/test_train.py`:
 
@@ -844,7 +846,7 @@ def test_clusters_report_centres_and_mean_distance():
     assert mean_dist > 0
 ```
 
-- [ ] **Step 2: Run it to see it fail**
+- [x] **Step 2: Run it to see it fail**
 
 ```bash
 pixi run test tests/test_train.py
@@ -852,7 +854,7 @@ pixi run test tests/test_train.py
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'hmode_classifier.train'`.
 
-- [ ] **Step 3: Write `hmode_classifier/train.py`**
+- [x] **Step 3: Write `hmode_classifier/train.py`**
 
 ```python
 """Fit and export the classifiers.
@@ -913,7 +915,7 @@ def accuracy(clf, df):
     return float(np.mean(clf.predict(x) == df["label"].to_numpy()))
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 pixi run test tests/test_train.py
@@ -921,7 +923,7 @@ pixi run test tests/test_train.py
 
 Expected: `3 passed`. If `to_onnx` of the KMeans emits a `scores` output named differently from v1, the test on `cluster` (output 0) still holds; the ensemble code only reads output 0.
 
-- [ ] **Step 5: Write `stages/train.py`**
+- [x] **Step 5: Write `stages/train.py`**
 
 ```python
 #!/usr/bin/env python
@@ -1023,7 +1025,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 6: Commit and run**
+- [x] **Step 6: Commit and run**
 
 ```bash
 git add -A
@@ -1034,7 +1036,7 @@ ls models/v2
 
 Expected: accuracies in the high 90s for all three (the paper reports about 99% on held-out shots), and `models/v2/` holds the eight weight files plus `split.json`. The notebook's reported ensemble test accuracy was 99.2% with std 0.6% over 100 random splits; one split in the 98 to 100% range is consistent.
 
-- [ ] **Step 7: Commit the run and fast-forward main**
+- [x] **Step 7: Commit the run and fast-forward main**
 
 ```bash
 git add -A
@@ -1050,7 +1052,7 @@ git checkout -q main && git merge -q --ff-only mlmd && git checkout -q mlmd
 - Create: `stages/label.py`
 - Test: `tests/test_label_stage.py`
 
-- [ ] **Step 1: Write the failing test for the result writer**
+- [x] **Step 1: Write the failing test for the result writer**
 
 `tests/test_label_stage.py`:
 
@@ -1073,7 +1075,7 @@ def test_labels_frame_flattens_the_three_results():
     assert df[df.model == "ensemble"]["label"].tolist() == [1]
 ```
 
-- [ ] **Step 2: Run it to see it fail**
+- [x] **Step 2: Run it to see it fail**
 
 ```bash
 pixi run test tests/test_label_stage.py
@@ -1081,7 +1083,7 @@ pixi run test tests/test_label_stage.py
 
 Expected: FAIL, `ModuleNotFoundError: No module named 'stages.label'`.
 
-- [ ] **Step 3: Write `stages/label.py`**
+- [x] **Step 3: Write `stages/label.py`**
 
 ```python
 #!/usr/bin/env python
@@ -1180,7 +1182,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 4: Run the unit test, commit, then a live trial**
+- [x] **Step 4: Run the unit test, commit, then a live trial**
 
 ```bash
 pixi run test
@@ -1204,7 +1206,7 @@ git add -A && git commit -m "Record the label trials" && git checkout -q main &&
 - Create: `tests/test_regression_live.py`
 - Modify: none
 
-- [ ] **Step 1: Write the test**
+- [x] **Step 1: Write the test**
 
 ```python
 """Randall Clark's 20-shot regression, against the shipped v1 weights.
@@ -1265,7 +1267,7 @@ def test_no_label_flips_against_the_reference(results, model):
     assert flips == {}, f"{model} label flips vs reference: {flips}"
 ```
 
-- [ ] **Step 2: Run it live**
+- [x] **Step 2: Run it live**
 
 ```bash
 pixi run test-live 2>&1 | tail -5
@@ -1273,7 +1275,7 @@ pixi run test-live 2>&1 | tail -5
 
 Expected: `3 passed` in about 3 minutes.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add -A
@@ -1289,7 +1291,7 @@ git checkout -q main && git merge -q --ff-only mlmd && git checkout -q mlmd
 - Create: `tools/lineage.py`
 - Modify: `README.md`
 
-- [ ] **Step 1: Write `tools/lineage.py`**
+- [x] **Step 1: Write `tools/lineage.py`**
 
 A script that opens the mlmd store and prints, for the newest `label-ensemble` execution, the chain back to the label sheet: the weights directory it scored with, the `train` execution that produced those weights (if v2), the `features-*` executions behind that, and the label sheet artifact. It fails with exit code 1 if a v2 label run does not trace to `Labels.xlsx`.
 
@@ -1340,7 +1342,7 @@ if __name__ == "__main__":
 
 If `cmfquery` method names differ in the installed cmflib (check with `pixi run python -c "from cmflib import cmfquery; help(cmfquery.CmfQuery)"`), use the equivalents it lists; the three calls needed are: stages of a pipeline, executions in a stage, artifacts of an execution.
 
-- [ ] **Step 2: Run it after the v2 label trial**
+- [x] **Step 2: Run it after the v2 label trial**
 
 ```bash
 pixi run python tools/lineage.py; echo exit=$?
@@ -1348,7 +1350,7 @@ pixi run python tools/lineage.py; echo exit=$?
 
 Expected: prints the artifact list and `traces to Labels.xlsx: True`, exit 0.
 
-- [ ] **Step 3: Rewrite `README.md`**
+- [x] **Step 3: Rewrite `README.md`**
 
 Keep Randall's description, flow charts, references and version table. Replace the usage paragraph with:
 
@@ -1397,7 +1399,7 @@ cmflib commits its metadata on a branch named `mlmd`; fast-forward `main` to it 
 `hmode_classifier/Models/` holds the v1 weights the papers report. `models/v2/` is produced by `pixi run train` from the same feature code the inference path uses, with a recorded seed and shot split; it is not byte-identical to v1 because the v1 split was not recorded.
 ````
 
-- [ ] **Step 4: Run everything once more and commit**
+- [x] **Step 4: Run everything once more and commit**
 
 ```bash
 pixi run test

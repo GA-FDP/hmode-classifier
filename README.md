@@ -1,7 +1,67 @@
 # Hmode-Classifier-For-FDP
 This is a classification tool designed to utilize ECE and PR diganostic data. There exists methods for using both individuall or as a combined Ensemble model.
 
-To use the models, please see the jupyter notebook detailing ECE, PR, and Ensemble usage. The labeller is structured to prioritize ease of use, requiring minimal user overseight. To guage the length of a session, running the ensemble model (which runs both ECE and PR) for 300 full shots at 100 ms intervals lasted about 1 hour.
+## Install and run
+
+Needs [pixi](https://pixi.sh) and an FDP bearer token (`~/.fdp/token`).
+
+```bash
+git clone <repo>
+cd hmode-classifier
+pixi install
+pixi run test              # unit tests, no network
+pixi run test-live         # the 20-shot regression against the shipped weights, about 3 min
+```
+
+Label shots with the shipped v1 weights:
+
+```python
+import numpy as np
+from hmode_classifier import Hmode_Ml_Predictions
+
+hm = Hmode_Ml_Predictions("Ensemble", [202981, 202982], np.arange(100, 10000, 100))
+results = hm.Predict()      # {'Ensemble': {shot: ...}, 'ECE': [records], 'PR': [records]}
+```
+
+Run scripts under `python -m fdp run python your_script.py` so the FDP environment is set.
+The Ensemble model on 300 shots at 100 ms steps takes about an hour; the ECE pipeline
+dominates, so give `Collect_Labels` more workers on a large machine. The time grid is
+free: times outside a shot's data are skipped, and the nearest sample is used otherwise.
+Skipped times and the reason are reported in each record's `Labeling_Errors`.
+
+## Provenance
+
+Every stage is recorded in the CMF store in `mlmd/`, with artifacts hashed by DVC. A
+label run traces to the weight files it scored with; v2 weights trace further, through
+the training run and the feature runs, to the label sheet and to the FDP archive
+snapshot each feature run read (shot list, signal specs and archive catalog are in
+`cmf_runs/<run>/inputs.json`).
+
+| Stage | Reads | Writes |
+| --- | --- | --- |
+| `features-ece`, `features-pr` | label sheet, FDP archive | `data/features/{ece,pr}.parquet` |
+| `train` | the feature tables, label sheet | `models/v2/` (eight weight files, `split.json`) |
+| `label-ece`, `label-pr`, `label-ensemble` | a weights directory, FDP archive | `data/labels/<name>/labels.parquet` |
+
+```bash
+pixi run features --workers 32                    # 301 labelled shots; ECE is the slow half
+pixi run train                                    # seconds
+pixi run label --shots 202981 --name demo --weights models/v2
+pixi run python tools/lineage.py                  # prints the chain back to Labels.xlsx
+```
+
+cmflib checks out a branch named `mlmd` and commits its pointer files there on every
+run; commit your own work on `mlmd` while running stages and fast-forward `main` to it
+afterwards. The DVC remote is set in `.dvc/config`.
+
+## Weights
+
+`hmode_classifier/Models/` holds the v1 weights the papers report; the regression test
+and the default `Predict()` use them. `models/v2/` is produced by `pixi run train` from
+the same feature code the inference path runs, with a recorded seed and shot split
+(`split.json`). It is not byte-identical to v1 because the v1 split was not recorded.
+Averaged over 20 random splits the retrained ensemble scores 99.1% +/- 0.5% on held-out
+shots, matching the 99.2% +/- 0.6% in the original training notebook.
 
 The ECE Model:  
 ![ECE RBF Flow Chart.pdf](https://github.com/user-attachments/files/28619657/ECE.RBF.Flow.Chart.pdf)
