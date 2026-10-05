@@ -1,0 +1,5 @@
+outs:
+- md5: 2b0d3adfbbef9380a14bd25224a71d0d
+  size: 511814
+  hash: md5
+  path: ece.parquet
