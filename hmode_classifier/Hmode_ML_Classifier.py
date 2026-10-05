@@ -21,7 +21,7 @@ except ImportError:
 
 
 class Hmode_Ml_Predictions():
-    def __init__(self, Model_Choice, ShotRange, Times, Exclude_Non_Plasma = 1):
+    def __init__(self, Model_Choice, ShotRange, Times, Exclude_Non_Plasma = 1, models_dir = None):
         """
         Parameters
         ----------
@@ -36,6 +36,9 @@ class Hmode_Ml_Predictions():
         
         Exclude_Non_Plasma : BOOLEAN
             Set to 1 to exclude labels after the plasma dies (ip < 200 kA), set to 0 to include all times (so long as data exists)
+        
+        models_dir : PATH, optional
+            Directory holding the ONNX models and .npy statistics. Defaults to the v1 weights shipped in the package.
         """
         
         #Confirm that Model_Choice is accurate
@@ -43,10 +46,10 @@ class Hmode_Ml_Predictions():
         assert Model_Choice in self.Models, 'The Model Choice must be one of the following: \'ECE\', \'PR\', or \'Ensemble\''
         
         #Setup for Label Collection
-        try:
-            self.MODEL_DIR = Path(__file__).resolve().parent / "Models/"
-        except NameError:
-            self.MODEL_DIR = Path.cwd() / "Models/"
+        if models_dir is None:
+            self.MODEL_DIR = Path(__file__).resolve().parent / "Models"
+        else:
+            self.MODEL_DIR = Path(models_dir).resolve()
         self.Model_Choice = Model_Choice
         self.ShotRange = ShotRange
         self.Times = Times

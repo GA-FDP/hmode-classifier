@@ -1,0 +1,28 @@
+[workspace]
+name = "hmode-classifier"
+channels = ["conda-forge", "ga-fdp"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = "3.11.*"
+fdp-core-latest = ">=1.24.0"
+onnxruntime = "*"
+scikit-learn = ">=1.9"
+skl2onnx = "*"
+openpyxl = "*"
+pyarrow = "*"
+pandas = "*"
+pytest = "*"
+
+[pypi-dependencies]
+hmode-classifier = { path = ".", editable = true }
+
+[activation.env]
+PYTHONNOUSERSITE = "1"
+
+[tasks]
+test = "pytest"
+test-live = "python -m fdp run pytest -m live -s"
+features = "python -m fdp run python stages/features.py"
+train = "python stages/train.py"
+label = "python -m fdp run python stages/label.py"

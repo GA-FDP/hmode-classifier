@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hmode-classifier"
+version = "0.1.0"
+description = "ECE and profile-reflectometer L/H-mode classifier for DIII-D over the Fusion Data Platform"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{name = "Randall Clark"}]
+# toksearch >= 2.17 and toksearch_d3d >= 0.14 are also required; they ship on
+# the ga-fdp conda channel (via fdp-core), not PyPI, so pixi.toml declares them.
+dependencies = [
+    "numpy>=1.26",
+    "scikit-learn>=1.9",
+    "onnxruntime>=1.17",
+]
+
+[project.optional-dependencies]
+cmf = ["toksearch_cmf>=0.2.1", "skl2onnx>=1.17", "pyarrow", "openpyxl", "pandas"]
+
+[tool.setuptools.packages.find]
+include = ["hmode_classifier*"]
+
+[tool.setuptools.package-data]
+hmode_classifier = ["Models/*.onnx", "Models/*.npy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["live: needs the FDP origin and a bearer token"]
+addopts = "-m 'not live'"

@@ -1,0 +1,7 @@
+.pixi/
+__pycache__/
+*.pyc
+*.egg-info/
+/data/
+/models/v2/
+/cmf_runs/
