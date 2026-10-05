@@ -1,0 +1,4 @@
+[core]
+    remote = local
+['remote "local"']
+    url = /fusion/projects/dt/sammuli/fdp_dev/scratch/hmode-classifier/dvc-remote
