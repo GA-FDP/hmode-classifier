@@ -1,0 +1,5 @@
+outs:
+- md5: 91479808cc77f3b01dc97c225f187d5e
+  size: 24903
+  hash: md5
+  path: pr-trial5.parquet
