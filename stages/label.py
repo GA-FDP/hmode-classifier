@@ -12,13 +12,14 @@ every model's label and H-mode probability per (shot, time).
 import argparse
 import os
 import time
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from toksearch_cmf import CmfRun
 
 from hmode_classifier import ECE_Classifier, Ensemble_Classifier, MODEL_DIR, PR_Classifier
-from hmode_classifier.cmf import CMF_PIPELINE, ROOT, CmfStage
+from hmode_classifier.cmf import CMF_PIPELINE, ROOT, CmfStage, dvc_mirror
 
 WEIGHT_FILES = ["ECE_GradBoost_v1.onnx", "ECE_Kmeans_v1.onnx", "PR_GradBoost_v1.onnx", "PR_Kmeans_v1.onnx",
                 "Ave_Dist_ECE_v1.npy", "Ave_Dist_PR_v1.npy", "Cluster_loc_ECE_v1.npy", "Cluster_loc_PR_v1.npy"]
@@ -54,16 +55,21 @@ def main():
             shots += [int(line) for line in f if line.strip()]
     shots = sorted(set(shots))
     times = np.arange(args.t0, args.t1, args.dt)
-    weights = os.path.abspath(args.weights)
-    weight_paths = [os.path.join(weights, name) for name in WEIGHT_FILES]
+    weights = Path(args.weights).resolve()
+    missing = [name for name in WEIGHT_FILES if not (weights / name).exists()]
+    if missing:
+        raise SystemExit(f"{weights} lacks {missing}")
+    # The v1 weights live in git, which DVC will not hash; a mirror under data/
+    # carries the same bytes. v2 weights are already a DVC-tracked directory.
+    tracked = weights if str(weights).startswith(os.path.join(ROOT, "models")) else Path(dvc_mirror(weights, "weights-" + weights.name))
     outdir = os.path.join(ROOT, "data", "labels", args.name)
     os.makedirs(outdir, exist_ok=True)
-    props = {"weights_dir": os.path.relpath(weights, ROOT), "t0_ms": args.t0, "t1_ms": args.t1, "dt_ms": args.dt}
+    props = {"weights_dir": os.path.relpath(tracked, ROOT), "t0_ms": args.t0, "t1_ms": args.t1, "dt_ms": args.dt}
 
     results = {}
     run_ids = {}
     for name, module in (("ece", ECE_Classifier), ("pr", PR_Classifier)):
-        run = CmfRun(CMF_PIPELINE, stage=f"label-{name}", work_dir=ROOT, inputs=weight_paths)
+        run = CmfRun(CMF_PIPELINE, stage=f"label-{name}", work_dir=ROOT, inputs=[str(tracked)])
         clock = time.time()
         results[name] = module.Collect_Labels(weights, shots, times, 1, retain_feature_vector=True,
                                               provenance=run, num_workers=args.workers)
@@ -74,8 +80,7 @@ def main():
 
     stage = CmfStage("label-ensemble", properties={**props, "parent_run_ece": run_ids["ece"],
                                                     "parent_run_pr": run_ids["pr"]})
-    for path in weight_paths:
-        stage.input(path)
+    stage.input(str(tracked))
     M = Ensemble_Classifier.load_models(weights)
     dd = Ensemble_Classifier.DataDictionaryBuilder(results["ece"], results["pr"], shots)
     ensemble = Ensemble_Classifier.BuildEnsembleDictionary(
@@ -86,7 +91,7 @@ def main():
     frame.to_parquet(out, index=False)
     counts = frame.groupby("model").size().to_dict()
     print(f"{out}: {counts}", flush=True)
-    stage.output(out, weights_version=os.path.basename(weights))
+    stage.output(out, weights_version=weights.name)
     stage.metrics("rows", {f"{k}_rows": int(v) for k, v in counts.items()})
     stage.finalize()
 

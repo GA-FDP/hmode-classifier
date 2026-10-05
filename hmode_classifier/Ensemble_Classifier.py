@@ -83,10 +83,14 @@ def DataDictionaryBuilder(ECE_Results,PR_Results,ShotRange):
         PR_Hmode_prob = []
         PR_Feature_Vector = []
         
-        common_times, ece_idx, pr_idx = np.intersect1d(
-            ECE_Results[i]['Label_Times'],
-            PR_Results[i]['Label_Times'],
-            return_indices=True)
+        #A shot whose fetch or feature step raised carries no labels at all; it contributes no overlap
+        if 'Label_Times' not in ECE_Results[i].keys() or 'Label_Times' not in PR_Results[i].keys():
+            common_times, ece_idx, pr_idx = np.array([]), np.array([], int), np.array([], int)
+        else:
+            common_times, ece_idx, pr_idx = np.intersect1d(
+                ECE_Results[i]['Label_Times'],
+                PR_Results[i]['Label_Times'],
+                return_indices=True)
         
         for j, t in enumerate(common_times):
             ECE_idx = ece_idx[j]

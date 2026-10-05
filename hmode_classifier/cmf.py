@@ -5,7 +5,9 @@ not toksearch pipelines (training, the ensemble combination) use CmfStage,
 which drives cmflib directly and records inputs, outputs and metrics against
 one execution.
 """
+import filecmp
 import os
+import shutil
 import sys
 import uuid
 
@@ -42,3 +44,20 @@ class CmfStage:
 
     def finalize(self):
         self.cmf.finalize()
+
+
+def dvc_mirror(src_dir, name):
+    """A DVC-trackable copy of a git-tracked directory, under data/mirror/<name>.
+
+    cmflib hands every logged path to `dvc add`, which refuses files git
+    already tracks. The copy has the same content, so the hash CMF records is
+    the hash of the original.
+    """
+    dest = os.path.join(ROOT, "data", "mirror", name)
+    os.makedirs(dest, exist_ok=True)
+    for entry in sorted(os.listdir(src_dir)):
+        src = os.path.join(src_dir, entry)
+        dst = os.path.join(dest, entry)
+        if os.path.isfile(src) and (not os.path.exists(dst) or not filecmp.cmp(src, dst, shallow=False)):
+            shutil.copyfile(src, dst)
+    return dest
