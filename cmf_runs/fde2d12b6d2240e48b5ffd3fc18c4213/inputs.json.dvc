@@ -1,0 +1,5 @@
+outs:
+- md5: 2b43ecf212a9170c15b05ac29ccf9bf2
+  size: 9746
+  hash: md5
+  path: inputs.json
