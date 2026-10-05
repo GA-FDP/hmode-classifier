@@ -38,8 +38,7 @@ def main():
     os.makedirs(OUTDIR, exist_ok=True)
 
     for name, module, prefix in (("ece", ECE_Classifier, "e"), ("pr", PR_Classifier, "p")):
-        run = CmfRun(CMF_PIPELINE, stage=f"features-{name}{suffix}", work_dir=ROOT, inputs=[LABELS],
-                     properties={"t0_ms": 100, "dt_ms": 100, "t_end_ms": 10000})
+        run = CmfRun(CMF_PIPELINE, stage=f"features-{name}{suffix}", work_dir=ROOT, inputs=[LABELS])
         clock = time.time()
         records = module.Collect_Labels(MODEL_DIR, shots, TIMES, 1, retain_feature_vector=True,
                                         provenance=run, num_workers=args.workers, classify=False)
@@ -50,7 +49,8 @@ def main():
               f"{len(table)} rows, {time.time() - clock:.0f} s -> {out}", flush=True)
         run.output(out)
         run.metrics("rows", {"shots_requested": len(shots), "shots_with_features": int(table["shot"].nunique()),
-                             "rows": len(table), "h_rows": int(table["label"].sum())})
+                             "rows": len(table), "h_rows": int(table["label"].sum()),
+                             "t0_ms": int(TIMES[0]), "dt_ms": int(TIMES[1] - TIMES[0]), "t_end_ms": int(TIMES[-1])})
         run.finalize()
 
 
