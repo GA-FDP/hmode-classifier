@@ -26,7 +26,8 @@ Returns
 A Dictionary of each shot with their labels, time of labelling, H and L mode probabilities, shot number, and a dictionary of Errors detailing
 why labels at requested timeslices during available data times didn't get labeled
 """
-def Collect_Labels(MODEL_DIR,ShotRange,Times,Exclude_Non_Plasma,retain_feature_vector = False):
+def Collect_Labels(MODEL_DIR,ShotRange,Times,Exclude_Non_Plasma,retain_feature_vector = False,
+                   provenance = None, num_workers = None, classify = True):
     #Collect ip and the Profile Reflectometer Densities, perform the precoessing of the data, collect densities from the polynomial spline fit,
     #And feed the spline fitted densities into the the pretrained ONNX gradient boosted Classifier Model
     
@@ -65,16 +66,15 @@ def Collect_Labels(MODEL_DIR,ShotRange,Times,Exclude_Non_Plasma,retain_feature_v
             DD_Spline, Error = Spline_Fit_Calc(DD,Error,degree,n_knots,X)
             Spline_Values = np.array([v['Y'] for v in DD_Spline.values()])
             
-            #Perform the Labelling using the ONNX Model
-            ONNX_PR = ort.InferenceSession(MODEL_DIR/"PR_GradBoost_v1.onnx")
-            input_name = ONNX_PR.get_inputs()[0].name
-            output_names = [out.name for out in ONNX_PR.get_outputs()]
-            
-            if Spline_Values.size == 0:
+            if Spline_Values.size == 0 or not classify:
                 record['LH_Label'] = []
                 record['LH_Prob'] = []
-                record['Label_Times'] = []
+                record['Label_Times'] = np.array([v['Time'] for v in DD_Spline.values()])
             else:
+                #Perform the Labelling using the ONNX Model
+                ONNX_PR = ort.InferenceSession(MODEL_DIR/"PR_GradBoost_v1.onnx")
+                input_name = ONNX_PR.get_inputs()[0].name
+                output_names = [out.name for out in ONNX_PR.get_outputs()]
                 outputs = ONNX_PR.run(output_names, {input_name: Spline_Values.astype(np.float32)})
                 record['LH_Label'] = outputs[0]
                 record['LH_Prob'] = outputs[1]
@@ -91,7 +91,7 @@ def Collect_Labels(MODEL_DIR,ShotRange,Times,Exclude_Non_Plasma,retain_feature_v
     else:
         pipeline.keep(['LH_Label', 'LH_Prob','Label_Times','Labeling_Errors','shot'])
     
-    records = pipeline.compute_multiprocessing()
+    records = pipeline.compute_multiprocessing(num_workers=num_workers, provenance=provenance)
     
     return records
 

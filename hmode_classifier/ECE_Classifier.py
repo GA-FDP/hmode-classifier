@@ -26,7 +26,8 @@ Returns
 A Dictionary of each shot with their labels, time of labelling, H and L mode probabilities, shot number, and a dictionary of Errors detailing
 why labels at requested timeslices during available data times didn't get labeled
 """
-def Collect_Labels(MODEL_DIR,ShotRange, Times, Exclude_Non_Plasma,retain_feature_vector = False):
+def Collect_Labels(MODEL_DIR,ShotRange, Times, Exclude_Non_Plasma,retain_feature_vector = False,
+                   provenance = None, num_workers = None, classify = True):
     #To Collect the ECE Labels, we must collect the ECE Data from the FDP, evaluate the times ECE data is available and follows the
     #ECE Density rules, pre process the available data, send it through the ONNX classifier, and record the results while disregarding extra data
     
@@ -82,17 +83,16 @@ def Collect_Labels(MODEL_DIR,ShotRange, Times, Exclude_Non_Plasma,retain_feature
             #Collect the Weighted Coefficients for the RBFfit
             DD_Coef, Error = calc_all_coefficients(DD,Error,RBFparam,CenterNum,include_00,maxtemp_loss)
             
-            #Perform the Labelling using the ONNX Model
-            ONNX_ECE = ort.InferenceSession(MODEL_DIR/"ECE_GradBoost_v1.onnx")
-            input_name = ONNX_ECE.get_inputs()[0].name
-            output_names = [out.name for out in ONNX_ECE.get_outputs()]
-            
             Coef = np.array([v['Weights'] for v in DD_Coef.values()])
-            if Coef.size == 0:
+            if Coef.size == 0 or not classify:
                 record['LH_Label'] = []
                 record['LH_Prob'] = []
-                record['Label_Times'] = []
+                record['Label_Times'] = np.array([v['Time'] for v in DD_Coef.values()])
             else:
+                #Perform the Labelling using the ONNX Model
+                ONNX_ECE = ort.InferenceSession(MODEL_DIR/"ECE_GradBoost_v1.onnx")
+                input_name = ONNX_ECE.get_inputs()[0].name
+                output_names = [out.name for out in ONNX_ECE.get_outputs()]
                 outputs = ONNX_ECE.run(output_names, {input_name: Coef.astype(np.float32)})
                 record['LH_Label'] = outputs[0]
                 record['LH_Prob'] = outputs[1]
@@ -109,7 +109,7 @@ def Collect_Labels(MODEL_DIR,ShotRange, Times, Exclude_Non_Plasma,retain_feature
     else:
         pipeline.keep(['LH_Label', 'LH_Prob','Label_Times','Labeling_Errors','shot'])
     
-    records = pipeline.compute_multiprocessing()
+    records = pipeline.compute_multiprocessing(num_workers=num_workers, provenance=provenance)
     
     return records
 

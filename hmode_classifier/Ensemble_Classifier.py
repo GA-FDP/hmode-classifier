@@ -5,6 +5,8 @@ Created on Thu Jun 18 20:51:13 2026
 
 @author: randallclark
 """
+from pathlib import Path
+
 import numpy as np
 import onnxruntime as ort
 
@@ -17,6 +19,19 @@ except ImportError:
     
 ECE_CUTOFF = 3.5
 PR_CUTOFF = 2.5
+
+
+def load_models(MODEL_DIR):
+    """The ensemble's k-means sessions and training statistics from one directory."""
+    MODEL_DIR = Path(MODEL_DIR)
+    return {
+        'kmeans_ece': ort.InferenceSession(MODEL_DIR/"ECE_Kmeans_v1.onnx"),
+        'kmeans_pr': ort.InferenceSession(MODEL_DIR/"PR_Kmeans_v1.onnx"),
+        'ave_ece': np.load(MODEL_DIR/'Ave_Dist_ECE_v1.npy'),
+        'cluster_ece': np.load(MODEL_DIR/'Cluster_loc_ECE_v1.npy'),
+        'ave_pr': np.load(MODEL_DIR/'Ave_Dist_PR_v1.npy'),
+        'cluster_pr': np.load(MODEL_DIR/'Cluster_loc_PR_v1.npy'),
+    }
 
 """
 Parameters
@@ -37,12 +52,7 @@ def Collect_Labels(MODEL_DIR,ShotRange, Times, Exclude_Non_Plasma):
     #using the ensemble method of a weighted average that penalizes prediction probabilities for diverging from the training data behavior
     
     #Load in the ECE and PR Kmeans Models and associated Statistics
-    ONNX_Kmeans_ECE = ort.InferenceSession(MODEL_DIR/"ECE_Kmeans_v1.onnx")
-    ONNX_Kmeans_PR = ort.InferenceSession(MODEL_DIR/"PR_Kmeans_v1.onnx")
-    Ave_ECE = np.load(MODEL_DIR/'Ave_Dist_ECE_v1.npy')
-    Cluster_ECE = np.load(MODEL_DIR/'Cluster_loc_ECE_v1.npy')
-    Ave_PR = np.load(MODEL_DIR/'Ave_Dist_PR_v1.npy')
-    Cluster_PR = np.load(MODEL_DIR/'Cluster_loc_PR_v1.npy')
+    M = load_models(MODEL_DIR)
     
     
     #Collect the ECE and PR Model Predictions
@@ -53,7 +63,7 @@ def Collect_Labels(MODEL_DIR,ShotRange, Times, Exclude_Non_Plasma):
     DD = DataDictionaryBuilder(ECE_Results,PR_Results,ShotRange)
     
     #Evaluate the Esnemble model for all data in the Data Dictionary
-    Ensemble_Result = BuildEnsembleDictionary(DD,ONNX_Kmeans_ECE,ONNX_Kmeans_PR,Ave_ECE,Cluster_ECE,Ave_PR,Cluster_PR)
+    Ensemble_Result = BuildEnsembleDictionary(DD,M['kmeans_ece'],M['kmeans_pr'],M['ave_ece'],M['cluster_ece'],M['ave_pr'],M['cluster_pr'])
     return {'Ensemble':Ensemble_Result, 'ECE':ECE_Results, 'PR':PR_Results}
     
 """
