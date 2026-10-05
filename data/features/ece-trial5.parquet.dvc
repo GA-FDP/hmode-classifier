@@ -1,0 +1,5 @@
+outs:
+- md5: 09dcbc583794d6ef396f6f64355bf634
+  size: 19420
+  hash: md5
+  path: ece-trial5.parquet

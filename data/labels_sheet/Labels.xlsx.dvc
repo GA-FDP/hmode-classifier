@@ -1,0 +1,5 @@
+outs:
+- md5: 2d15f26b234137e0d7935d4faf8f74bd
+  size: 26428
+  hash: md5
+  path: Labels.xlsx
