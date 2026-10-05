@@ -10,7 +10,9 @@ the label sheet as a declared input.
     pixi run features --limit 5      # trial
 """
 import argparse
+import filecmp
 import os
+import shutil
 import time
 
 import numpy as np
@@ -21,7 +23,10 @@ from hmode_classifier.cmf import CMF_PIPELINE, ROOT
 from hmode_classifier.features import feature_table
 from hmode_classifier.labels import read_labels
 
-LABELS = os.path.join(ROOT, "Regression_Test_Data", "Labels.xlsx")
+LABELS_SRC = os.path.join(ROOT, "Regression_Test_Data", "Labels.xlsx")
+# DVC cannot hash a git-tracked file, so the stage reads a DVC-tracked copy of
+# the label sheet; the content hash CMF records is the same either way.
+LABELS = os.path.join(ROOT, "data", "labels_sheet", "Labels.xlsx")
 OUTDIR = os.path.join(ROOT, "data", "features")
 TIMES = np.arange(100, 10000, 100)
 
@@ -32,6 +37,9 @@ def main():
     parser.add_argument("--workers", type=int, default=8)
     args = parser.parse_args()
 
+    os.makedirs(os.path.dirname(LABELS), exist_ok=True)
+    if not os.path.exists(LABELS) or not filecmp.cmp(LABELS_SRC, LABELS, shallow=False):
+        shutil.copyfile(LABELS_SRC, LABELS)
     labels = read_labels(LABELS)
     shots = sorted(labels["Shot"].unique().tolist())[: args.limit]
     suffix = f"-trial{args.limit}" if args.limit else ""
