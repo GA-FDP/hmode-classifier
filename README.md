@@ -6,7 +6,7 @@ This is a classification tool designed to utilize ECE and PR diganostic data. Th
 Needs [pixi](https://pixi.sh) and an FDP bearer token (`~/.fdp/token`).
 
 ```bash
-git clone <repo>
+git clone https://github.com/GA-FDP/hmode-classifier.git
 cd hmode-classifier
 pixi install
 pixi run test              # unit tests, no network
@@ -52,7 +52,9 @@ pixi run python tools/lineage.py                  # prints the chain back to Lab
 
 cmflib checks out a branch named `mlmd` and commits its pointer files there on every
 run; commit your own work on `mlmd` while running stages and fast-forward `main` to it
-afterwards. The DVC remote is set in `.dvc/config`.
+afterwards. The DVC remote in `.dvc/config` is a path on the GA filesystem, so the recorded
+artifacts (`data/`, `models/v2/`) are fetchable with `dvc pull` only from GA until a shared
+remote is set up; the store in `mlmd/` and the pointer files are in git and readable anywhere.
 
 ## Labels
 
