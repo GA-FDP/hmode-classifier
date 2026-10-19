@@ -54,12 +54,24 @@ cmflib checks out a branch named `mlmd` and commits its pointer files there on e
 run; commit your own work on `mlmd` while running stages and fast-forward `main` to it
 afterwards. The DVC remote is set in `.dvc/config`.
 
+## Labels
+
+`Regression_Test_Data/Labels.xlsx` is the hand-labelled sheet the models were trained on:
+301 shots from the 2024 campaign, one row per L-mode, dither or H-mode window. It is free
+for anyone to use, for retraining or otherwise.
+
+The ECE chord radii in `Calc_R` use the radiometer channel frequencies from the
+[DIII-D ECE radiometer page](https://fusionga.sharepoint.com/sites/DIII-DDiagnostics/SitePages/ECE-Radiometer.aspx)
+and R0 = 1.6955 m (M. Austin, personal communication).
+
 ## Weights
 
 `hmode_classifier/Models/` holds the v1 weights the papers report; the regression test
 and the default `Predict()` use them. `models/v2/` is produced by `pixi run train` from
-the same feature code the inference path runs, with a recorded seed and shot split
-(`split.json`). It is not byte-identical to v1 because the v1 split was not recorded.
+the same feature code the inference path runs, following the author's recipe: a seeded
+80/20 split by shot for the held-out accuracy (`split.json`, recorded as metrics), then a
+refit on every row for the exported weights, as v1 was. A full-data fit agrees with v1 on
+99.6% of ECE rows and 99.8% of PR rows; the rest is data reprocessed since v1 was trained.
 Averaged over 20 random splits the retrained ensemble scores 99.1% +/- 0.5% on held-out
 shots, matching the 99.2% +/- 0.6% in the original training notebook.
 

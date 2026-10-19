@@ -6,10 +6,11 @@ stages/features.py) and the label sheet they were joined with. Outputs: the
 eight files the package's Ensemble loader expects, under models/v2/, plus
 train/test accuracy per model and the ensemble accuracy on held-out shots.
 
-The shot split is seeded and written to models/v2/split.json. One shared
-split: the ECE and PR models are each trained on all of their own rows for
-the training shots, and the ensemble is scored on held-out shots that have
-both.
+The author's recipe: fit on a seeded 80/20 split by shot to measure held-out
+accuracy, then refit on every row and export that. The split and the
+accuracies are recorded; the exported weights are the full-data fit, as the
+shipped v1 weights were. The ECE and PR models are each trained on all of
+their own rows; the ensemble is scored on held-out shots that have both.
 
     pixi run train
 """
@@ -57,7 +58,13 @@ def main():
         train = df[df["shot"].isin(train_shots)]
         test = df[df["shot"].isin(test_shots)]
         clf = fit_classifier(train)
-        km, centres, mean_dist = fit_clusters(train)
+        metrics.update({f"{name}_train_rows": len(train), f"{name}_test_rows": len(test),
+                        f"{name}_train_accuracy": accuracy(clf, train), f"{name}_test_accuracy": accuracy(clf, test)})
+        print(f"{name}: split fit, train {len(train)} rows acc {metrics[f'{name}_train_accuracy']:.4f}, "
+              f"test {len(test)} rows acc {metrics[f'{name}_test_accuracy']:.4f}", flush=True)
+        # The exported weights come from every row, as the author did for v1.
+        clf = fit_classifier(df)
+        km, centres, mean_dist = fit_clusters(df)
         width = len(feature_columns(df))
         with open(os.path.join(args.out, f"{tag}_GradBoost_v1.onnx"), "wb") as f:
             f.write(to_onnx(clf, width))
@@ -66,12 +73,12 @@ def main():
         np.save(os.path.join(args.out, f"Cluster_loc_{tag}_v1.npy"), centres)
         np.save(os.path.join(args.out, f"Ave_Dist_{tag}_v1.npy"), np.float64(mean_dist))
         fitted[name] = clf
-        metrics.update({f"{name}_train_rows": len(train), f"{name}_test_rows": len(test),
-                        f"{name}_train_accuracy": accuracy(clf, train), f"{name}_test_accuracy": accuracy(clf, test)})
-        print(f"{name}: train {len(train)} rows acc {metrics[f'{name}_train_accuracy']:.4f}, "
-              f"test {len(test)} rows acc {metrics[f'{name}_test_accuracy']:.4f}", flush=True)
+        metrics[f"{name}_full_rows"] = len(df)
 
-    # Ensemble accuracy on held-out shots that have both feature sets.
+    # Ensemble agreement with the labels on the shots the split held out. The
+    # exported models saw those rows too, so this is a consistency check on the
+    # ensemble arithmetic, not a held-out accuracy; the per-model test
+    # accuracies above are the held-out numbers.
     both = ensemble_rows(tables["ece"], tables["pr"])
     both = both[both["shot"].isin(test_shots)]
     M = Ensemble_Classifier.load_models(args.out)
@@ -84,9 +91,9 @@ def main():
     de = np.linalg.norm(xe - M["cluster_ece"][ce], axis=1)
     dp = np.linalg.norm(xp - M["cluster_pr"][cp], axis=1)
     _, label = Ensemble_Classifier.Ensemble_Model(pe, pp, M["ave_ece"], M["ave_pr"], de, dp)
-    metrics["ensemble_test_rows"] = len(both)
-    metrics["ensemble_test_accuracy"] = float(np.mean(label == both["label"].to_numpy()))
-    print(f"ensemble: test {len(both)} rows acc {metrics['ensemble_test_accuracy']:.4f}", flush=True)
+    metrics["ensemble_check_rows"] = len(both)
+    metrics["ensemble_check_accuracy"] = float(np.mean(label == both["label"].to_numpy()))
+    print(f"ensemble: {len(both)} held-out-shot rows, agreement {metrics['ensemble_check_accuracy']:.4f}", flush=True)
 
     stage.output(args.out, weights_version=os.path.basename(args.out))
     stage.metrics("accuracy", metrics)

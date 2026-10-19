@@ -13,8 +13,8 @@ from hmode_classifier.cmf import ROOT
 SHOTS = [200410, 200939, 201183, 201454, 202029, 202033, 202138, 203011, 203013, 203036,
          203045, 203047, 203092, 203110, 203271, 203297, 204049, 204181, 204461, 204463]
 TIMES = np.arange(100, 10000, 100)
-# The reference for this shot was made before its data was recalculated; the
-# regression notebook notes the same thing.
+# The reference for this shot predates a reprocessing of its reflectometer
+# data that moved the pedestal formation by about 10 ms (author, 2026-10).
 KNOWN_RECALCULATED = {203045}
 REFERENCE = {"ECE": "ECE_Regression_Dict.pkl", "PR": "PR_Regression_Dict.pkl", "Ensemble": "Ens_Regression_Dict.pkl"}
 

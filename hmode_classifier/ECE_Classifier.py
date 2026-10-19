@@ -235,6 +235,8 @@ def Collect_Rmidout(Time,record):
 """
 ---------------------------------------------------------------------------------------------------------------------------------------------------------
 This function calculates the radial distances of the ECE chords
+Channel frequencies: DIII-D ECE radiometer page, https://fusionga.sharepoint.com/sites/DIII-DDiagnostics/SitePages/ECE-Radiometer.aspx
+R_0 = 1.6955 m: M. Austin, personal communication (2025); no written source located
 ---------------------------------------------------------------------------------------------------------------------------------------------------------
 """
 def Calc_R(B_0):
